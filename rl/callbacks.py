@@ -395,7 +395,10 @@ class ModelIntervalCheckpoint(Callback):
         if self.verbose > 0:
             print('Step {}: saving model to {}'.format(
                 self.total_steps, filepath))
-        self.model.save_weights(filepath, overwrite=True)
+        try:
+            self.model.save_weights(filepath, overwrite=True)
+        except Exception:
+            print('owchy on savey')
 
 
 class WandbLogger(Callback):
