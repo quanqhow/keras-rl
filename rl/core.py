@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import traceback
+import os
 import warnings
 from copy import deepcopy
 
@@ -98,8 +100,10 @@ class Agent(object):
             callbacks += [TrainIntervalLogger(interval=log_interval)]
         elif verbose > 1:
             callbacks += [TrainEpisodeLogger()]
+        vis_callback = Visualizer()
+        callbacks += [vis_callback]
         if visualize:
-            callbacks += [Visualizer()]
+            vis_callback.enable()
         history = History()
         callbacks += [history]
         callbacks = CallbackList(callbacks)
@@ -143,28 +147,11 @@ class Agent(object):
                     # This slightly changes the start position between games.
                     nb_random_start_steps = 0 if nb_max_start_steps == 0 else np.random.randint(
                         nb_max_start_steps)
+                    # print(f'throwing {nb_random_start_steps} steps away')
                     for _ in range(nb_random_start_steps):
-                        if start_step_policy is None:
-                            action = env.action_space.sample()
-                        else:
-                            action = start_step_policy(observation)
+                        action = self.forward(observation)
                         if self.processor is not None:
                             action = self.processor.process_action(action)
-                        callbacks.on_action_begin(action)
-                        observation, reward, done, info = env.step(action)
-                        observation = deepcopy(observation)
-                        if self.processor is not None:
-                            observation, reward, done, info = self.processor.process_step(
-                                observation, reward, done, info)
-                        callbacks.on_action_end(action)
-                        if done:
-                            warnings.warn('Env ended before {} random steps could be performed at the start. You should probably lower the `nb_max_start_steps` parameter.'.format(
-                                nb_random_start_steps))
-                            observation = deepcopy(env.reset())
-                            if self.processor is not None:
-                                observation = self.processor.process_observation(
-                                    observation)
-                            break
 
                 # At this point, we expect to be fully initialized.
                 assert episode_reward is not None
@@ -217,6 +204,14 @@ class Agent(object):
                 self.step += 1
 
                 if done:
+                    try:
+                        if not visualize and os.path.exists('/tmp/vis'):
+                            vis_callback.enable()
+                        elif not visualize:
+                            vis_callback.disable()
+                    except Exception:
+                        traceback.print_exc()
+
                     # We are in a terminal state but the agent hasn't yet seen it. We therefore
                     # perform one more forward-backward call and simply ignore the action before
                     # resetting the environment. We need to pass in `terminal=False` here since
@@ -292,7 +287,9 @@ class Agent(object):
         if verbose >= 1:
             callbacks += [TestLogger()]
         if visualize:
-            callbacks += [Visualizer()]
+            vis_callback = Visualizer()
+            vis_callback.enable()
+            callbacks += [vis_callback]
         history = History()
         callbacks += [history]
         callbacks = CallbackList(callbacks)

@@ -371,9 +371,21 @@ class FileLogger(Callback):
 
 
 class Visualizer(Callback):
+    def enable(self):
+        self.enabled = True
+
+    def disable(self):
+        self.enabled = False
+
     def on_action_end(self, action, logs):
+        try:
+            is_enabled = self.enabled
+        except Exception:
+            self.enabled = False
+            is_enabled = self.enabled
         """ Render environment at the end of each action """
-        self.env.render(mode='human')
+        if is_enabled:
+            self.env.render(mode='human')
 
 
 class ModelIntervalCheckpoint(Callback):
@@ -403,14 +415,9 @@ class ModelIntervalCheckpoint(Callback):
 
 class WandbLogger(Callback):
     """ Similar to TrainEpisodeLogger, but sends data to Weights & Biases to be visualized """
-
-    def __init__(self, **kwargs):
-        kwargs = {
-            'project': 'keras-rl',
-            'anonymous': 'allow',
-            **kwargs
-        }
-        wandb.init(**kwargs)
+    def __init__(self, project=None, **kwargs):
+        assert project is not None, "Must supply a wandb project name"
+        wandb.init(project=project, **kwargs)
         self.episode_start = {}
         self.observations = {}
         self.rewards = {}
@@ -423,10 +430,10 @@ class WandbLogger(Callback):
         self.metrics_names = self.model.metrics_names
         wandb.config.update({
             'params': self.params,
-            'env': self.env.__dict__,
-            'env.env': self.env.env.__dict__,
-            'env.env.spec': self.env.spec.__dict__,
-            'agent': self.model.__dict__
+            # 'env': self.env.__dict__,
+            # 'env.env': self.env.env.__dict__,
+            # 'env.env.spec': self.env.spec.__dict__,
+            # 'agent': self.model.__dict__
         })
 
     def on_episode_begin(self, episode, logs):
